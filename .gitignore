@@ -7,6 +7,10 @@ curly.exe
 curly
 micro_curl.com
 *.o
+*.elf
+*.dbg
+*.aarch64.*
+*.x86_64.*
 
 # OS-specific
 .DS_Store

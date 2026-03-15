@@ -6,7 +6,6 @@
 #include "third_party/mbedtls/net_sockets.h"
 #include "third_party/mbedtls/entropy.h"
 #include "third_party/mbedtls/ctr_drbg.h"
-
 void handle_response(char *data) {
     char *body = strstr(data, "\r\n\r\n");
     if (!body) return;
@@ -16,17 +15,16 @@ void handle_response(char *data) {
         while (1) {
             long sz = strtol(p, &p, 16);
             if (sz <= 0) break;
-            p += 2; printf("%.*s", (int)sz, p);
-            p += sz + 2;
+            while (*p == '\r' || *p == '\n') p++;
+            printf("%.*s", (int)sz, p);
+            p += sz;
+            while (*p == '\r' || *p == '\n') p++;
         }
     } else { printf("%s", body); }
 }
-
 int main(int argc, char **argv) {
-    char host[256] = "models.github.ai";
-    char path[1024] = "/catalog/models";
+    char host[256] = "models.github.ai", path[1024] = "/catalog/models";
     const char *port = "443";
-
     if (argc > 1) {
         char *url = argv[1];
         if (strncmp(url, "https://", 8) == 0) url += 8;
@@ -36,41 +34,25 @@ int main(int argc, char **argv) {
             snprintf(path, sizeof(path), "%s", slash);
         } else {
             snprintf(host, sizeof(host), "%s", url);
-            snprintf(path, sizeof(path), "/");
+            strcpy(path, "/");
         }
     }
-
     mbedtls_net_context fd; mbedtls_entropy_context ent; mbedtls_ctr_drbg_context drbg;
     mbedtls_ssl_context ssl; mbedtls_ssl_config conf;
-
     mbedtls_net_init(&fd); mbedtls_ssl_init(&ssl); mbedtls_ssl_config_init(&conf);
     mbedtls_entropy_init(&ent); mbedtls_ctr_drbg_init(&drbg);
-
     mbedtls_ctr_drbg_seed(&drbg, mbedtls_entropy_func, &ent, (const unsigned char *)"curly", 5);
-
-    if (mbedtls_net_connect(&fd, host, port, MBEDTLS_NET_PROTO_TCP) != 0) {
-        fprintf(stderr, "Failed to connect to %s:%s\n", host, port);
-        return 1;
-    }
-
+    if (mbedtls_net_connect(&fd, host, port, MBEDTLS_NET_PROTO_TCP) != 0) return 1;
     mbedtls_ssl_config_defaults(&conf, MBEDTLS_SSL_IS_CLIENT, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT);
     mbedtls_ssl_conf_authmode(&conf, MBEDTLS_SSL_VERIFY_NONE);
     mbedtls_ssl_conf_rng(&conf, mbedtls_ctr_drbg_random, &drbg);
-
     mbedtls_ssl_setup(&ssl, &conf);
     mbedtls_ssl_set_hostname(&ssl, host);
     mbedtls_ssl_set_bio(&ssl, &fd, mbedtls_net_send, mbedtls_net_recv, NULL);
-
-    if (mbedtls_ssl_handshake(&ssl) != 0) {
-        fprintf(stderr, "SSL handshake failed\n");
-        return 1;
-    }
-
+    if (mbedtls_ssl_handshake(&ssl) != 0) return 1;
     char req[2048];
-    int len = snprintf(req, sizeof(req), "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: curly/1.0\r\nConnection: close\r\n\r\n", path, host);
+    int len = snprintf(req, sizeof(req), "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0\r\nConnection: close\r\n\r\n", path, host);
     mbedtls_ssl_write(&ssl, (unsigned char *)req, len);
-
-    // Dynamic buffer for large responses
     size_t buf_size = 65536;
     char *buf = calloc(1, buf_size);
     int ret, total = 0;
@@ -82,10 +64,7 @@ int main(int argc, char **argv) {
             memset(buf + total, 0, buf_size - total);
         }
     }
-    
     if (total > 0) handle_response(buf);
-    
-    free(buf);
-    mbedtls_net_free(&fd); mbedtls_ssl_free(&ssl); mbedtls_ssl_config_free(&conf);
+    free(buf); mbedtls_net_free(&fd); mbedtls_ssl_free(&ssl); mbedtls_ssl_config_free(&conf);
     return 0;
 }
