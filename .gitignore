@@ -1,0 +1,12 @@
+# Cosmopolitan toolchain and source
+cosmo/
+tmp/
+
+# Build artifacts
+curly.exe
+curly
+micro_curl.com
+*.o
+
+# OS-specific
+.DS_Store
