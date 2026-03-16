@@ -59,7 +59,7 @@ $(BIN): setup $(SRC)
 	@echo "Build complete. Run with ./$(BIN) or ./curly"
 
 test: $(BIN)
-	./curly | head -n 20
+	./curly https://www.google.com | head -n 20
 
 clean:
 	rm -f $(BIN) curly
