@@ -8,7 +8,8 @@
 6. **Braces:** Always use curly braces `{}` for control flow boundaries (`if`, `else if`, `else`, `while`, `for`). 
     *   **Allowed Single-Line:** `if (cond) { stmt; }` is ONLY allowed if there is no `else` or `else if` branch and it contains exactly one statement.
     *   **Prohibited Single-Line:** Any structure with an `else` or `else if` branch MUST use multi-line blocks for all branches. Any block with more than one statement MUST be multi-line.
-7. **Pointers & Types:** Place the asterisk attached to the variable name with a space after the type, rather than attached to the type. (e.g. `char * data` or `const char * source`).
+7. **Pointers & Types:** In declarations, place the asterisk attached to the variable name with a space after the type (e.g. `char *data` or `const char *source`).
+15. **Unary Operators:** NEVER put a space between unary operators (`&`, `*` for dereference, `!`, `++`, `--`) and their operands (e.g. `&variable`, `*pointer`, `!condition`, `i++`).
 8. **Helper Functions:** Break out short helper functions instead of deep nested monolithic long bodies.
 9. **Nested Conditions:** Avoid nested `if` if you can structure it into a more readable `if else if else`.
 10. **Semantic Naming:** Strive for single, highly descriptive words for functions rather than generic "ActionObject" verb-noun pairs. Think about the *meaning* rather than the *action* (e.g., `successful()` instead of `handle_a()`, `otherwise()` instead of `handle_other()`).
