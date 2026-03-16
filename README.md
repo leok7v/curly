@@ -16,7 +16,7 @@ curly.exe https://example.com
 ./curly https://example.com
 ```
 
-## How it's Built
+## Why curly instead of curl?
 
 curly uses the Cosmopolitan toolchain to achieve its cross-platform "Actually Portable Executable" (APE) format.
 
