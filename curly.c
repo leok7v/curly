@@ -164,10 +164,12 @@ static void progress(size_t current, size_t total, time_t start) {
         int percentage = (int)((current * 100) / total);
         int eta = (mbs > 0) ?
             (int)((total - current) / 1024.0 / 1024.0 / mbs) : 0;
-        fprintf(stderr, "%3d%% %6.2f MB/s ETA %ds\r", percentage, mbs, eta);
+        if (eta > 3600) { eta = 3600; }
+        fprintf(stderr, "%3d%% %6.2f MB/s ETA %ds\033[K\r",
+                percentage, mbs, eta);
     } else {
-        fprintf(stderr, "%6.2f MB %6.2f MB/s\r", current / 1024.0 / 1024.0,
-                mbs);
+        fprintf(stderr, "%6.2f MB %6.2f MB/s\033[K\r",
+                current / 1024.0 / 1024.0, mbs);
     }
 }
 
