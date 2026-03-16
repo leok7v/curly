@@ -46,12 +46,17 @@ int main(int argc, char ** argv) {
             snprintf(h, sizeof(h), "%.*s", (int)(k - u), u);
             snprintf(t, sizeof(t), "%.*s",
                      (int)(f ? f - k - 1 : strlen(k + 1)), k + 1);
-            if (f) { strcpy(p, f); } else { strcpy(p, "/"); }
+            if (f) {
+                strcpy(p, f);
+            } else {
+                strcpy(p, "/");
+            }
         } else if (f) {
             snprintf(h, sizeof(h), "%.*s", (int)(f - u), u);
             strcpy(p, f);
         } else {
-            strcpy(h, u); strcpy(p, "/");
+            strcpy(h, u);
+            strcpy(p, "/");
         }
     }
     while (c < 5 && ok) {
@@ -64,7 +69,8 @@ int main(int argc, char ** argv) {
         mbedtls_ctr_drbg_seed(& rg, mbedtls_entropy_func, & nt,
                               (const unsigned char *) "curly", 5);
         if (mbedtls_net_connect(& fd, h, t, MBEDTLS_NET_PROTO_TCP) != 0) {
-            ok = 0; r = 1;
+            ok = 0;
+            r = 1;
         }
         if (ok && s) {
             mbedtls_ssl_config_defaults(& cf, MBEDTLS_SSL_IS_CLIENT,
@@ -75,26 +81,34 @@ int main(int argc, char ** argv) {
             mbedtls_ssl_set_hostname(& sl, h);
             mbedtls_ssl_set_bio(& sl, & fd, mbedtls_net_send,
                                 mbedtls_net_recv, NULL);
-            if (mbedtls_ssl_handshake(& sl) != 0) { ok = 0; r = 1; }
+            if (mbedtls_ssl_handshake(& sl) != 0) {
+                ok = 0;
+                r = 1;
+            }
         }
         if (ok) {
             char q[2048];
             snprintf(q, sizeof(q), "GET %s HTTP/1.1\r\nHost: %s\r\n"
                      "User-Agent: curly/1.0\r\nConnection: close\r\n\r\n",
                      p, h);
-            if (s) { mbedtls_ssl_write(& sl, (unsigned char *) q,
-                                       strlen(q)); }
-            else { mbedtls_net_send(& fd, (unsigned char *) q,
-                                    strlen(q)); }
+            if (s) {
+                mbedtls_ssl_write(& sl, (unsigned char *) q, strlen(q));
+            } else {
+                mbedtls_net_send(& fd, (unsigned char *) q, strlen(q));
+            }
             size_t bts = 65536; char * b = calloc(1, bts);
             int n, tt = 0, rd = 1;
             while (rd) {
-                if (s) { n = mbedtls_ssl_read(& sl,
-                    (unsigned char *) b + tt, bts - tt - 1); }
-                else { n = mbedtls_net_recv(& fd,
-                    (unsigned char *) b + tt, bts - tt - 1); }
-                if (n <= 0) { rd = 0; }
-                else {
+                if (s) {
+                    n = mbedtls_ssl_read(& sl, (unsigned char *) b + tt,
+                                         bts - tt - 1);
+                } else {
+                    n = mbedtls_net_recv(& fd, (unsigned char *) b + tt,
+                                         bts - tt - 1);
+                }
+                if (n <= 0) {
+                    rd = 0;
+                } else {
                     tt += n;
                     if (tt >= (int) bts - 1) {
                         bts *= 2; b = realloc(b, bts);
@@ -117,7 +131,10 @@ int main(int argc, char ** argv) {
                                     snprintf(h, sizeof(h), "%.*s",
                                              (int)(x - l), l);
                                     strcpy(p, x);
-                                } else { strcpy(h, l); strcpy(p, "/"); }
+                                } else {
+                                    strcpy(h, l);
+                                    strcpy(p, "/");
+                                }
                             } else if (strncmp(l, "http://", 7) == 0) {
                                 l += 7; s = false; strcpy(t, "80");
                                 char * x = strchr(l, '/');
@@ -125,13 +142,29 @@ int main(int argc, char ** argv) {
                                     snprintf(h, sizeof(h), "%.*s",
                                              (int)(x - l), l);
                                     strcpy(p, x);
-                                } else { strcpy(h, l); strcpy(p, "/"); }
-                            } else { strcpy(p, l); }
+                                } else {
+                                    strcpy(h, l);
+                                    strcpy(p, "/");
+                                }
+                            } else {
+                                strcpy(p, l);
+                            }
                             c++;
-                        } else { emit_body(b); ok = 0; }
-                    } else { emit_body(b); ok = 0; }
-                } else { emit_body(b); ok = 0; }
-            } else { ok = 0; }
+                        } else {
+                            emit_body(b);
+                            ok = 0;
+                        }
+                    } else {
+                        emit_body(b);
+                        ok = 0;
+                    }
+                } else {
+                    emit_body(b);
+                    ok = 0;
+                }
+            } else {
+                ok = 0;
+            }
             free(b);
         }
         mbedtls_net_free(& fd); mbedtls_ssl_free(& sl);
