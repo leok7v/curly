@@ -16,11 +16,11 @@ struct sb {
 };
 
 struct cfg {
-    char h[256], p[1024], t[16], m[16];
+    char h[256], p[1024], t[16], m[16], o[1024];
     char * d;
     char * hs[32];
     int hc;
-    bool s;
+    bool s, L, v, i, N, p301, p302;
 };
 
 static void sb_init(struct sb * b) {
@@ -55,27 +55,36 @@ static void sb_free(struct sb * b) {
     b->capacity = 0;
 }
 
-static void render_chunks(char * p) {
-    long z = 1;
-    while (z > 0) {
-        z = strtol(p, & p, 16);
-        if (z > 0) {
-            while (* p == '\r' || * p == '\n') { p++; }
-            printf("%.*s", (int) z, p);
-            p += z;
-            while (* p == '\r' || * p == '\n') { p++; }
-        }
-    }
+static void help() {
+    printf("usage: curly [options] <url>\n"
+           "  -L, --location      follow redirects\n"
+           "  -v, --verbose       show handshake and headers\n"
+           "  -i, --include       show response headers\n"
+           "  -o, --output <file> write body to file\n"
+           "  -X, --request <cmd> set method (GET, POST, etc.)\n"
+           "  -H, --header <hdr>  add custom header\n"
+           "  -d, --data <data>   send POST data\n"
+           "  --post301/302       keep method on redirect\n");
 }
 
-static void emit_body(char * d) {
+static void render_body(char * d, FILE * f) {
     char * b = strstr(d, "\r\n\r\n");
     if (b) {
         b += 4;
         if (strcasestr(d, "Transfer-Encoding: chunked")) {
-            render_chunks(b);
+            char * p = b;
+            long z = 1;
+            while (z > 0) {
+                z = strtol(p, & p, 16);
+                if (z > 0) {
+                    while (* p == '\r' || * p == '\n') { p++; }
+                    fwrite(p, 1, (size_t) z, f);
+                    p += z;
+                    while (* p == '\r' || * p == '\n') { p++; }
+                }
+            }
         } else {
-            printf("%s", b);
+            fwrite(b, 1, strlen(b), f);
         }
     }
 }
@@ -95,14 +104,15 @@ static void parse_url(char * u, struct cfg * c) {
         snprintf(c->h, 256, "%.*s", (int)(f - u), u);
         strcpy(c->p, f);
     } else {
-        strcpy(c->h, u); strcpy(c->p, "/");
+        strcpy(c->h, u);
+        strcpy(c->p, "/");
     }
 }
 
-static void show_progress(size_t cur, size_t total, time_t start) {
+static void progress(size_t cur, size_t total, time_t start) {
     time_t now = time(NULL);
-    double elapsed = difftime(now, start);
-    double mbs = (elapsed > 0) ? (cur / 1024.0 / 1024.0) / elapsed : 0;
+    double el = difftime(now, start);
+    double mbs = (el > 0) ? (cur / 1024.0 / 1024.0) / el : 0;
     if (total > 0) {
         int pct = (int)((cur * 100) / total);
         int eta = (mbs > 0) ? (int)((total - cur) / 1024.0 / 1024.0 / mbs) : 0;
@@ -154,13 +164,16 @@ static char * fetch(struct cfg * c) {
         }
         sb_puts(& q, "Connection: close\r\n\r\n");
         if (c->d) { sb_puts(& q, c->d); }
+        if (c->v) { fprintf(stderr, "> %s", q.data); }
         if (c->s) { mbedtls_ssl_write(& sl, (unsigned char *) q.data,
                                      (int) q.count); }
         else { mbedtls_net_send(& fd, (unsigned char *) q.data,
                                 (int) q.count); }
         sb_free(& q);
-        char tmp[16384]; int n, rd = 1;
-        size_t total_size = 0; time_t start = time(NULL);
+        char tmp[16384];
+        int n, rd = 1;
+        size_t ts = 0;
+        time_t start = time(NULL);
         while (rd) {
             if (c->s) { n = mbedtls_ssl_read(& sl, (unsigned char *) tmp,
                                             sizeof(tmp)); }
@@ -169,11 +182,11 @@ static char * fetch(struct cfg * c) {
             if (n <= 0) { rd = 0; }
             else {
                 sb_put(& b, tmp, n);
-                if (total_size == 0) {
+                if (ts == 0) {
                     char * cl = strcasestr(b.data, "Content-Length: ");
-                    if (cl) { total_size = atol(cl + 16); }
+                    if (cl) { ts = atol(cl + 16); }
                 }
-                show_progress(b.count, total_size, start);
+                progress(b.count, ts, start);
             }
         }
         if (b.count > 0) { fprintf(stderr, "\n"); }
@@ -184,41 +197,83 @@ static char * fetch(struct cfg * c) {
 }
 
 int main(int argc, char ** argv) {
-    struct cfg c = { .m = "GET", .hc = 0, .s = true, .d = NULL };
+    struct cfg c = { .m = "GET", .hc = 0, .s = true };
     int r = 0, cnt = 0, ok = 1;
     memset(c.h, 0, 256); memset(c.p, 0, 1024); memset(c.t, 0, 16);
+    memset(c.o, 0, 1024);
     for (int i = 1; i < argc && ok; i++) {
-        if (strcmp(argv[i], "-X") == 0 && i + 1 < argc) {
+        if ((strcmp(argv[i], "-X") == 0) && i + 1 < argc) {
             strcpy(c.m, argv[++i]);
-        } else if (strcmp(argv[i], "-H") == 0 && i + 1 < argc) {
+        } else if ((strcmp(argv[i], "-H") == 0) && i + 1 < argc) {
             if (c.hc < 32) { c.hs[c.hc++] = argv[++i]; }
-        } else if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
+        } else if ((strcmp(argv[i], "-d") == 0) && i + 1 < argc) {
             c.d = argv[++i];
             if (strcmp(c.m, "GET") == 0) { strcpy(c.m, "POST"); }
-        } else if (strcmp(argv[i], "-s") == 0) {
-            // ignore silent
+        } else if (strcmp(argv[i], "-L") == 0) {
+            c.L = true;
+        } else if (strcmp(argv[i], "-v") == 0) {
+            c.v = true;
+        } else if (strcmp(argv[i], "-i") == 0) {
+            c.i = true;
+        } else if ((strcmp(argv[i], "-o") == 0) && i + 1 < argc) {
+            strcpy(c.o, argv[++i]);
+        } else if (strcmp(argv[i], "--post301") == 0) {
+            c.p301 = true;
+        } else if (strcmp(argv[i], "--post302") == 0) {
+            c.p302 = true;
+        } else if (strcmp(argv[i], "--help") == 0) {
+            help(); ok = 0;
         } else if (argv[i][0] != '-') {
             parse_url(argv[i], & c);
         }
     }
-    if (ok && c.h[0] == 0) { ok = 0; r = 1; }
-    while (ok && cnt < 5) {
+    if (ok && c.h[0] == 0) { help(); ok = 0; r = 1; }
+    while (ok && cnt < 10) {
         char * b = fetch(& c);
-        if (b && (strncmp(b, "HTTP/1.1 3", 10) == 0 ||
-                  strncmp(b, "HTTP/1.0 3", 10) == 0)) {
-            char * l = strcasestr(b, "Location: ");
-            if (l) {
-                l += 10; char * e = strstr(l, "\r\n");
-                if (e) {
-                    * e = '\0';
-                    if (strncmp(l, "http", 4) == 0) { parse_url(l, & c); }
-                    else { strcpy(c.p, l); }
-                    cnt++;
-                } else { emit_body(b); ok = 0; }
-            } else { emit_body(b); ok = 0; }
-        } else if (b) { emit_body(b); ok = 0; }
-        else { ok = 0; r = 1; }
-        free(b);
+        bool redir = false;
+        if (b) {
+            if (c.v) {
+                char * end = strstr(b, "\r\n\r\n");
+                if (end) { fprintf(stderr, "< %.*s\n", (int)(end - b), b); }
+            }
+            if (c.L && (strncmp(b, "HTTP/1.1 3", 10) == 0 ||
+                        strncmp(b, "HTTP/1.0 3", 10) == 0)) {
+                char * l = strcasestr(b, "Location: ");
+                if (l) {
+                    l += 10; char * e = strstr(l, "\r\n");
+                    if (e) {
+                        * e = '\0';
+                        if (strncmp(b + 9, "301", 3) == 0 && ! c.p301) {
+                            strcpy(c.m, "GET");
+                        }
+                        if (strncmp(b + 9, "302", 3) == 0 && ! c.p302) {
+                            strcpy(c.m, "GET");
+                        }
+                        if (strncmp(l, "http", 4) == 0) { parse_url(l, & c); }
+                        else { strcpy(c.p, l); }
+                        redir = true; cnt++;
+                    }
+                }
+            }
+            if (! redir) {
+                if (c.i) {
+                    char * end = strstr(b, "\r\n\r\n");
+                    if (end) { printf("%.*s\n\n", (int)(end - b), b); }
+                }
+                FILE * f = stdout;
+                if (c.o[0]) {
+                    if (c.o[strlen(c.o) - 1] == '/') {
+                        char * fn = strrchr(c.p, '/');
+                        if (fn) { strcat(c.o, fn + 1); }
+                    }
+                    f = fopen(c.o, "wb");
+                }
+                render_body(b, f);
+                if (f != stdout) { fclose(f); }
+                ok = 0;
+            }
+            free(b);
+        } else { ok = 0; r = 1; }
     }
     return r;
 }
