@@ -11,7 +11,7 @@
 #include "third_party/mbedtls/ctr_drbg.h"
 
 struct sb {
-    char *data;
+    char * data;
     size_t count;
     size_t capacity;
 };
@@ -22,8 +22,8 @@ struct state {
     struct sb port;
     struct sb method;
     struct sb output;
-    char *data;
-    char *headers[32];
+    char * data;
+    char * headers[32];
     int header_count;
     bool ssl; // enable https
     bool location; // follow redirects
@@ -33,14 +33,14 @@ struct state {
     bool post302; // maintain post on 302
 };
 
-static void sb_init(struct sb *b) {
+static void sb_init(struct sb * b) {
     b->count = 0;
     b->capacity = 256;
     b->data = malloc(b->capacity);
     if (b->data) { b->data[0] = '\0'; }
 }
 
-static void sb_put(struct sb *b, const char *d, int bytes) {
+static void sb_put(struct sb * b, const char * d, int bytes) {
     if (b->data && b->count + (size_t)bytes + 1 > b->capacity) {
         b->capacity = (b->capacity + (size_t)bytes + 1) * 2;
         b->data = realloc(b->data, b->capacity);
@@ -52,11 +52,11 @@ static void sb_put(struct sb *b, const char *d, int bytes) {
     }
 }
 
-static void sb_puts(struct sb *b, const char *s) {
+static void sb_puts(struct sb * b, const char * s) {
     sb_put(b, s, (int)strlen(s));
 }
 
-static void sb_printf(struct sb *b, const char *f, ...) {
+static void sb_printf(struct sb * b, const char * f, ...) {
     va_list ap;
     va_start(ap, f);
     int n = vsnprintf(NULL, 0, f, ap);
@@ -75,7 +75,7 @@ static void sb_printf(struct sb *b, const char *f, ...) {
     }
 }
 
-static void sb_free(struct sb *b) {
+static void sb_free(struct sb * b) {
     free(b->data);
     b->data = NULL;
     b->count = 0;
@@ -94,25 +94,25 @@ static void help(void) {
            "  --post301/302       keep method on redirect\n");
 }
 
-static char *skip_crlf(char *p) {
+static char * skip_crlf(char * p) {
     while (*p == '\r' || *p == '\n') { p++; }
     return p;
 }
 
-static void render_body(char *data, FILE *file) {
-    char *body = strstr(data, "\r\n\r\n");
+static void render_body(char * data, FILE * file) {
+    char * body = strstr(data, "\r\n\r\n");
     if (body) {
         body += 4;
         if (strcasestr(data, "Transfer-Encoding: chunked")) {
-            char *pointer = body;
+            char * p = body;
             long size = 1;
             while (size > 0) {
-                size = strtol(pointer, &pointer, 16);
+                size = strtol(p, &p, 16);
                 if (size > 0) {
-                    pointer = skip_crlf(pointer);
-                    fwrite(pointer, 1, (size_t)size, file);
-                    pointer += size;
-                    pointer = skip_crlf(pointer);
+                    p = skip_crlf(p);
+                    fwrite(p, 1, (size_t)size, file);
+                    p += size;
+                    p = skip_crlf(p);
                 }
             }
         } else {
@@ -121,7 +121,7 @@ static void render_body(char *data, FILE *file) {
     }
 }
 
-static void parse_url(char *url, struct state *state) {
+static void parse_url(char * url, struct state * state) {
     state->host.count = 0;
     state->path.count = 0;
     state->port.count = 0;
@@ -136,8 +136,8 @@ static void parse_url(char *url, struct state *state) {
     } else {
         sb_puts(&state->port, state->ssl ? "443" : "80");
     }
-    char *slash = strchr(url, '/');
-    char *colon = strchr(url, ':');
+    char * slash = strchr(url, '/');
+    char * colon = strchr(url, ':');
     if (colon && (!slash || colon < slash)) {
         sb_put(&state->host, url, (int)(colon - url));
         sb_put(&state->port, colon + 1,
@@ -171,7 +171,7 @@ static void progress(size_t current, size_t total, time_t start) {
     }
 }
 
-static char *fetch(struct state *state) {
+static char * fetch(struct state * state) {
     struct sb response;
     sb_init(&response);
     int ok = 1;
@@ -232,25 +232,25 @@ static char *fetch(struct state *state) {
                              (int)request.count);
         }
         sb_free(&request);
-        char buffer[16384];
+        char data[16 * 1024];
         int n;
         int reading = 1;
         size_t total_size = 0;
         time_t start = time(NULL);
         while (reading) {
             if (state->ssl) {
-                n = mbedtls_ssl_read(&ssl, (unsigned char *)buffer,
-                                     sizeof(buffer));
+                n = mbedtls_ssl_read(&ssl, (unsigned char *)data,
+                                     sizeof(data));
             } else {
-                n = mbedtls_net_recv(&fd, (unsigned char *)buffer,
-                                     sizeof(buffer));
+                n = mbedtls_net_recv(&fd, (unsigned char *)data,
+                                     sizeof(data));
             }
             if (n <= 0) {
                 reading = 0;
             } else {
-                sb_put(&response, buffer, n);
+                sb_put(&response, data, n);
                 if (total_size == 0) {
-                    char *cl = strcasestr(response.data, "Content-Length: ");
+                    char * cl = strcasestr(response.data, "Content-Length: ");
                     if (cl) {
                         total_size = atol(cl + 16);
                     }
@@ -268,7 +268,7 @@ static char *fetch(struct state *state) {
     return response.data;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char ** argv) {
     struct state state = { .header_count = 0, .ssl = true };
     int result = 0;
     int count = 0;
@@ -318,29 +318,29 @@ int main(int argc, char **argv) {
         result = 1;
     }
     while (ok && count < 10) {
-        char *buffer = fetch(&state);
+        char * data = fetch(&state);
         bool redirected = false;
-        if (buffer) {
+        if (data) {
             if (state.verbose) {
-                char *end = strstr(buffer, "\r\n\r\n");
+                char * end = strstr(data, "\r\n\r\n");
                 if (end) {
-                    fprintf(stderr, "< %.*s\n", (int)(end - buffer), buffer);
+                    fprintf(stderr, "< %.*s\n", (int)(end - data), data);
                 }
             }
-            if (state.location && (strncmp(buffer, "HTTP/1.1 3", 10) == 0 ||
-                                   strncmp(buffer, "HTTP/1.0 3", 10) == 0)) {
-                char *loc = strcasestr(buffer, "Location: ");
+            if (state.location && (strncmp(data, "HTTP/1.1 3", 10) == 0 ||
+                                   strncmp(data, "HTTP/1.0 3", 10) == 0)) {
+                char * loc = strcasestr(data, "Location: ");
                 if (loc) {
                     loc += 10;
-                    char *end = strstr(loc, "\r\n");
+                    char * end = strstr(loc, "\r\n");
                     if (end) {
                         *end = '\0';
-                        if (strncmp(buffer + 9, "301", 3) == 0 &&
+                        if (strncmp(data + 9, "301", 3) == 0 &&
                             !state.post301) {
                             state.method.count = 0;
                             sb_puts(&state.method, "GET");
                         }
-                        if (strncmp(buffer + 9, "302", 3) == 0 &&
+                        if (strncmp(data + 9, "302", 3) == 0 &&
                             !state.post302) {
                             state.method.count = 0;
                             sb_puts(&state.method, "GET");
@@ -358,28 +358,28 @@ int main(int argc, char **argv) {
             }
             if (!redirected) {
                 if (state.include) {
-                    char *end = strstr(buffer, "\r\n\r\n");
+                    char * end = strstr(data, "\r\n\r\n");
                     if (end) {
-                        printf("%.*s\n\n", (int)(end - buffer), buffer);
+                        printf("%.*s\n\n", (int)(end - data), data);
                     }
                 }
-                FILE *file = stdout;
+                FILE * file = stdout;
                 if (state.output.count > 0) {
                     if (state.output.data[state.output.count - 1] == '/') {
-                        char *fn = strrchr(state.path.data, '/');
+                        char * fn = strrchr(state.path.data, '/');
                         if (fn) {
                             sb_puts(&state.output, fn + 1);
                         }
                     }
                     file = fopen(state.output.data, "wb");
                 }
-                render_body(buffer, file);
+                render_body(data, file);
                 if (file != stdout) {
                     fclose(file);
                 }
                 ok = 0;
             }
-            free(buffer);
+            free(data);
         } else {
             ok = 0;
             result = 1;
