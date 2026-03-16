@@ -5,7 +5,36 @@
 3. **Empty Lines:** NO empty lines are allowed inside function bodies (between statements). You must use exactly one single empty line between function definitions to separate them.
 4. **Control Flow:** No early returns. Every function must follow the single-entry, single-exit principle. Declare a result variable at the top, mutate it, and return it at the very bottom. Never use `continue`. If possible, use smarter `for` loop conditions or extra state variables instead of `break`.
 5. **Naming Conventions:** Use extremely compact and short variable names, especially in local scopes. Prefer abbreviations and single letters where context is clear (e.g., `sb`, `m`, `f`, `ptr`, `res`). Avoid multi-word identifiers if a shorter abbreviation works.
-6. **Braces:** Always use curly braces `{}` for control flow boundaries (`if`, `else if`, `else`, `while`, `for`). A single-line block `if (cond) { stmt; }` is ONLY allowed for simple `if` statements that have no `else` or `else if` branch and contain exactly one statement. If any branch of a control structure exists beyond a single `if`, or if a block contains multiple statements, all branches and blocks must be multi-line.
+6. **Braces:** Always use curly braces `{}` for control flow boundaries (`if`, `else if`, `else`, `while`, `for`).
+    *   **Allowed Single-Line:** `if (cond) { stmt; }` is ONLY allowed if there is no `else` or `else if` branch and it contains exactly one statement.
+    *   **Prohibited Single-Line:** Any structure with an `else` or `else if` branch MUST use multi-line blocks for all branches. Any block with more than one statement MUST be multi-line.
+
+    **DO:**
+    ```c
+    if (only_one) {
+        do_a();
+        do_b();
+    }
+
+    if (simple) { single(); }
+
+    if (branch) {
+        first();
+    } else {
+        second();
+    }
+    ```
+
+    **DON'T:**
+    ```c
+    if (multi) { stmt1; stmt2; } // Multi-statement must be multi-line
+
+    if (cond) { a(); } else { b(); } // If else exists, all must be multi-line
+
+    if (cond) {
+        a();
+    } else { b(); } // Even if one branch is short, else must be multi-line
+    ```
 7. **Pointers & Types:** Place the asterisk attached to the variable name with a space after the type, rather than attached to the type. (e.g. `char * d` or `const char * s`).
 8. **Helper Functions:** Break out short helper functions instead of deep nested monolithic long bodies.
 9. **Nested Conditions:** Avoid nested `if` if you can structure it into a more readable `if else if else`.
