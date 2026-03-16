@@ -55,7 +55,7 @@ $(BIN): setup $(SRC)
 	@echo "Building $(BIN)..."
 	@$(COSMOCC) -o $@ $(SRC) $(CFLAGS) \
 		$$(find $(COSMO_DIR)/third_party/mbedtls -maxdepth 1 -name "*.c" | grep -vE "test|programs|main\.c")
-	@ln -sf $(BIN) curly
+	@cp -f $(BIN) curly
 	@echo "Build complete. Run with ./$(BIN) or ./curly"
 
 test: $(BIN)

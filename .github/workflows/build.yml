@@ -29,8 +29,6 @@ jobs:
     - name: Build and Test
       run: |
         make test
-        # Create a copy without .exe for Unix systems
-        cp curly.exe curly
 
     - name: Release
       if: startsWith(github.ref, 'refs/tags/')
