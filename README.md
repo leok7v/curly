@@ -2,9 +2,7 @@
 
 curly is a minimalist, dependency-free HTTPS client built with Cosmopolitan Libc and MbedTLS. It compiles into a single fat binary that runs natively on Linux, macOS, Windows, FreeBSD, OpenBSD, and NetBSD.
 
-## One-Line Test
-
-Test the GitHub Models API directly from your terminal:
+## Test
 
 ### Windows (cmd/powershell)
 ```bash
@@ -21,6 +19,12 @@ curly.exe https://example.com
 ./curly https://cosmo.zip/pub/cosmocc/cosmocc.zip -o /tmp/cosmocc.zip
 ```
 
+### List GitHub Models
+
+```bash
+curl -X GET "https://models.github.ai/catalog/models"
+```
+
 ### Complex POST (Gemini API)
 ```bash
 ./curly -X POST https://generativelanguage.googleapis.com/v1beta/openai/chat/completions \
@@ -30,11 +34,12 @@ curly.exe https://example.com
 ```
 
 **Expected Output:**
+
 ```json
 {"choices":[{"finish_reason":"stop","index":0,"message":{"content":"Hello there! How's your day going so far? 😊 \n\nIs there anything you’d like to chat about, or anything I can help you with?","role":"assistant"}}],"created":1773624851,"id":"E163acnyMfre_uMP26nN4AE","model":"models/gemma-3-1b-it","object":"chat.completion","usage":{"completion_tokens":34,"prompt_tokens":2,"total_tokens":36}}
 ```
 
-## How it's Built
+## Actually Portable Executable
 
 curly uses the Cosmopolitan toolchain to achieve its cross-platform "Actually Portable Executable" (APE) format.
 
@@ -42,7 +47,7 @@ curly uses the Cosmopolitan toolchain to achieve its cross-platform "Actually Po
 2.  TLS Support: Statically links mbedtls source files directly from the Cosmopolitan tree.
 3.  Universal Binary: The resulting .exe is an APE binary. On Unix-like systems, it runs as a native ELF/Mach-O; on Windows, it runs as a native PE.
 
-### Local Build Instructions
+### Build
 
 ```bash
 # Clone and build

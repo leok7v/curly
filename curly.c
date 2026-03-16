@@ -171,10 +171,9 @@ static void progress(size_t current, size_t total, time_t start) {
     }
 }
 
-static char * fetch(struct state * state) {
+static char * fetch(struct state * state, bool * ok) {
     struct sb response;
     sb_init(&response);
-    int ok = 1;
     mbedtls_net_context fd;
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context drbg;
@@ -188,10 +187,8 @@ static char * fetch(struct state * state) {
     mbedtls_ctr_drbg_seed(&drbg, mbedtls_entropy_func, &entropy,
                           (const unsigned char *)"curly", 5);
     if (mbedtls_net_connect(&fd, state->host.data, state->port.data,
-                            MBEDTLS_NET_PROTO_TCP) != 0) {
-        ok = 0;
-    }
-    if (ok && state->ssl) {
+                            MBEDTLS_NET_PROTO_TCP) != 0) { *ok = false; }
+    if (*ok && state->ssl) {
         mbedtls_ssl_config_defaults(&config, MBEDTLS_SSL_IS_CLIENT,
             MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT);
         mbedtls_ssl_conf_authmode(&config, MBEDTLS_SSL_VERIFY_NONE);
@@ -200,11 +197,9 @@ static char * fetch(struct state * state) {
         mbedtls_ssl_set_hostname(&ssl, state->host.data);
         mbedtls_ssl_set_bio(&ssl, &fd, mbedtls_net_send,
                             mbedtls_net_recv, NULL);
-        if (mbedtls_ssl_handshake(&ssl) != 0) {
-            ok = 0;
-        }
+        if (mbedtls_ssl_handshake(&ssl) != 0) { *ok = false; }
     }
-    if (ok) {
+    if (*ok) {
         struct sb request;
         sb_init(&request);
         sb_printf(&request, "%s %s HTTP/1.1\r\nHost: %s\r\n"
@@ -218,12 +213,8 @@ static char * fetch(struct state * state) {
                       strlen(state->data));
         }
         sb_puts(&request, "Connection: close\r\n\r\n");
-        if (state->data) {
-            sb_puts(&request, state->data);
-        }
-        if (state->verbose) {
-            fprintf(stderr, "> %s", request.data);
-        }
+        if (state->data) { sb_puts(&request, state->data); }
+        if (state->verbose) { fprintf(stderr, "> %s", request.data); }
         if (state->ssl) {
             mbedtls_ssl_write(&ssl, (unsigned char *)request.data,
                               (int)request.count);
@@ -232,35 +223,31 @@ static char * fetch(struct state * state) {
                              (int)request.count);
         }
         sb_free(&request);
-        char data[16 * 1024];
+        char buffer[16 * 1024];
         int n;
         int reading = 1;
         size_t total_size = 0;
         time_t start = time(NULL);
         while (reading) {
             if (state->ssl) {
-                n = mbedtls_ssl_read(&ssl, (unsigned char *)data,
-                                     sizeof(data));
+                n = mbedtls_ssl_read(&ssl, (unsigned char *)buffer,
+                                     sizeof(buffer));
             } else {
-                n = mbedtls_net_recv(&fd, (unsigned char *)data,
-                                     sizeof(data));
+                n = mbedtls_net_recv(&fd, (unsigned char *)buffer,
+                                     sizeof(buffer));
             }
             if (n <= 0) {
                 reading = 0;
             } else {
-                sb_put(&response, data, n);
+                sb_put(&response, buffer, n);
                 if (total_size == 0) {
                     char * cl = strcasestr(response.data, "Content-Length: ");
-                    if (cl) {
-                        total_size = atol(cl + 16);
-                    }
+                    if (cl) { total_size = atol(cl + 16); }
                 }
                 progress(response.count, total_size, start);
             }
         }
-        if (response.count > 0) {
-            fprintf(stderr, "\n");
-        }
+        if (response.count > 0) { fprintf(stderr, "\n"); }
     }
     mbedtls_net_free(&fd);
     mbedtls_ssl_free(&ssl);
@@ -270,9 +257,8 @@ static char * fetch(struct state * state) {
 
 int main(int argc, char ** argv) {
     struct state state = { .header_count = 0, .ssl = true };
-    int result = 0;
     int count = 0;
-    int ok = 1;
+    bool ok = true;
     sb_init(&state.host);
     sb_init(&state.path);
     sb_init(&state.port);
@@ -307,20 +293,19 @@ int main(int argc, char ** argv) {
             state.post302 = true;
         } else if (strcmp(argv[i], "--help") == 0) {
             help();
-            ok = 0;
+            ok = false;
         } else if (argv[i][0] != '-') {
             parse_url(argv[i], &state);
         }
     }
     if (ok && state.host.count == 0) {
         help();
-        ok = 0;
-        result = 1;
+        ok = false;
     }
     while (ok && count < 10) {
-        char * data = fetch(&state);
+        char * data = fetch(&state, &ok);
         bool redirected = false;
-        if (data) {
+        if (ok && data) {
             if (state.verbose) {
                 char * end = strstr(data, "\r\n\r\n");
                 if (end) {
@@ -367,22 +352,17 @@ int main(int argc, char ** argv) {
                 if (state.output.count > 0) {
                     if (state.output.data[state.output.count - 1] == '/') {
                         char * fn = strrchr(state.path.data, '/');
-                        if (fn) {
-                            sb_puts(&state.output, fn + 1);
-                        }
+                        if (fn) { sb_puts(&state.output, fn + 1); }
                     }
                     file = fopen(state.output.data, "wb");
                 }
                 render_body(data, file);
-                if (file != stdout) {
-                    fclose(file);
-                }
-                ok = 0;
+                if (file != stdout) { fclose(file); }
+                ok = false;
             }
             free(data);
         } else {
-            ok = 0;
-            result = 1;
+            ok = false;
         }
     }
     sb_free(&state.host);
@@ -390,5 +370,5 @@ int main(int argc, char ** argv) {
     sb_free(&state.port);
     sb_free(&state.method);
     sb_free(&state.output);
-    return result;
+    return !ok ? 0 : 1;
 }

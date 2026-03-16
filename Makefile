@@ -47,6 +47,7 @@ extract: download
 		tar -xz -C $(COSMO_DIR) --strip-components=1 -f $(COSMO_TAR); \
 		echo "Extracting toolchain..."; \
 		unzip -q -o $(COSMOCC_ZIP) -d $(COSMO_DIR); \
+		rm -rf $(TMP_DIR); \
 	fi
 
 setup: extract
