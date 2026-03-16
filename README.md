@@ -2,7 +2,7 @@
 
 curly is a minimalist, dependency-free HTTPS client built with Cosmopolitan Libc and MbedTLS. It compiles into a single fat binary that runs natively on Linux, macOS, Windows, FreeBSD, OpenBSD, and NetBSD.
 
-## One-Line Test
+## test
 
 Test the GitHub Models API directly from your terminal:
 
@@ -24,7 +24,7 @@ curly uses the Cosmopolitan toolchain to achieve its cross-platform "Actually Po
 2.  TLS Support: Statically links mbedtls source files directly from the Cosmopolitan tree.
 3.  Universal Binary: The resulting .exe is an APE binary. On Unix-like systems, it runs as a native ELF/Mach-O; on Windows, it runs as a native PE.
 
-### Local Build Instructions
+### Build
 
 ```bash
 # Clone and build
