@@ -162,11 +162,16 @@ static void progress(size_t current, size_t total, time_t start) {
     double mbs = (elapsed > 0) ? (current / 1024.0 / 1024.0) / elapsed : 0;
     if (total > 0) {
         int percentage = (int)((current * 100) / total);
-        int eta = (mbs > 0) ?
-            (int)((total - current) / 1024.0 / 1024.0 / mbs) : 0;
-        if (eta > 3600) { eta = 3600; }
-        fprintf(stderr, "%3d%% %6.2f MB/s ETA %ds\033[K\r",
-                percentage, mbs, eta);
+        if (percentage > 100) { percentage = 100; }
+        if (percentage < 100) {
+            int eta = (mbs > 0) ?
+                (int)((total - current) / 1024.0 / 1024.0 / mbs) : 0;
+            if (eta > 3600) { eta = 3600; }
+            fprintf(stderr, "%3d%% %6.2f MB/s ETA %ds\033[K\r",
+                    percentage, mbs, eta);
+        } else {
+            fprintf(stderr, "%3d%% %6.2f MB/s\033[K\r", percentage, mbs);
+        }
     } else {
         fprintf(stderr, "%6.2f MB %6.2f MB/s\033[K\r",
                 current / 1024.0 / 1024.0, mbs);
@@ -246,7 +251,12 @@ static char * fetch(struct state * state, bool * ok) {
                     char * cl = strcasestr(response.data, "Content-Length: ");
                     if (cl) { total_size = atol(cl + 16); }
                 }
-                progress(response.count, total_size, start);
+                size_t body_bytes = response.count;
+                char * b_start = strstr(response.data, "\r\n\r\n");
+                if (b_start) {
+                    body_bytes = response.count - (b_start + 4 - response.data);
+                }
+                progress(body_bytes, total_size, start);
             }
         }
         if (response.count > 0) { fprintf(stderr, "\n"); }
