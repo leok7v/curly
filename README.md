@@ -16,6 +16,11 @@ curly.exe https://example.com
 ./curly https://example.com
 ```
 
+### Download cosmo.zip to /tmp
+```bash
+./curly https://cosmo.zip/pub/cosmocc/cosmocc.zip -o /tmp/cosmocc.zip
+```
+
 ### Complex POST (Gemini API)
 ```bash
 ./curly -X POST https://generativelanguage.googleapis.com/v1beta/openai/chat/completions \
